@@ -552,7 +552,7 @@ async def bitquery_trending_feed(callback):
     while True:
         if not is_circuit_broken("bitquery"):
             try:
-                async with get_session() as session:  
+                async with get_session() as session:  # Fixed: use context manager
                     async def _fetch():
                         async with session.post(url, json=payload, headers=headers) as resp:
                             if resp.status != 200:
@@ -1612,13 +1612,30 @@ DASHBOARD_HTML = """
     </div>
     
     <script>
-        const ws = new WebSocket(`ws://${location.host}/ws`);
+        // Fix WebSocket URL for Railway deployment
+        const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${location.host}/ws`;
+        console.log('Connecting to WebSocket:', wsUrl);
+        const ws = new WebSocket(wsUrl);
+        
         let lastUpdate = Date.now();
         let allLogs = [];
         let currentFilter = 'all';
         let bestTrade = 0;
         let worstTrade = 0;
         let todaysTrades = 0;
+        
+        ws.onopen = function() {
+            console.log('WebSocket connected!');
+            document.getElementById('connection-status').className = 'connection-status connected';
+            document.getElementById('connection-status').textContent = '● Connected';
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            document.getElementById('connection-status').className = 'connection-status disconnected';
+            document.getElementById('connection-status').textContent = '● Connection Error';
+        };
         
         function formatNumber(num, decimals = 3) {
             return parseFloat(num || 0).toFixed(decimals);
