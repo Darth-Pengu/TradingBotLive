@@ -71,23 +71,24 @@ PORT = int(os.environ.get("PORT", "8080"))
 # Configure logging
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
+
+# Database configuration - use volume for Railway
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    DB_PATH = '/data/toxibot.db'
+    LOG_PATH = '/data/toxibot.log'
+else:
+    DB_PATH = 'toxibot.db'
+    LOG_PATH = 'toxibot.log'
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("toxibot.log")
+        logging.FileHandler(LOG_PATH)
     ]
 )
 logger = logging.getLogger("toxibot")
-
-# Database configuration
-if os.environ.get('RAILWAY_ENVIRONMENT'):
-    DB_PATH = '/app/data/toxibot.db'
-    LOG_PATH = '/app/data/toxibot.log'
-else:
-    DB_PATH = 'toxibot.db'
-    LOG_PATH = 'toxibot.log'
 
 # ---------------------
 # GLOBAL STATE & STATS
