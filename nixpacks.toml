@@ -1,9 +1,9 @@
 [phases.setup]
-nixPkgs = ["python311", "gcc", "openssl", "libffi", "zlib"]
+nixPkgs = ["python311", "gcc", "openssl", "libffi", "zlib", "pkg-config"]
 
 [phases.install]
 cmds = [
-    "python -m pip install --upgrade pip",
+    "pip install --upgrade pip setuptools wheel",
     "pip install -r requirements.txt"
 ]
 
@@ -13,3 +13,4 @@ cmd = "python main.py"
 [variables]
 PYTHONUNBUFFERED = "1"
 PYTHON_VERSION = "3.11"
+PIP_NO_CACHE_DIR = "1"
