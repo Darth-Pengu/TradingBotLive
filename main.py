@@ -514,16 +514,24 @@ async def pumpfun_newtoken_feed(callback):
             await asyncio.sleep(wait_time)
 
 async def bitquery_trending_feed(callback):
-    """Bitquery feed for trending tokens (free alternative to Moralis)"""
+    """Bitquery feed for trending tokens - excellent for scalping!"""
     if not BITQUERY_API_KEY:
         logger.warning("Bitquery feed not enabled (no API key).")
+        return
+    
+    if BITQUERY_API_KEY == "disabled":
+        logger.info("Bitquery feed disabled by user.")
         return
     
     url = "https://streaming.bitquery.io/graphql"
     query = """
     {
       Solana {
-        DEXTrades(limit: 10, orderBy: {descending: Block_Time}, tradeAmountUsd: {gt: 100}) {
+        DEXTrades(
+            limit: 10, 
+            orderBy: {descending: Block_Time}, 
+            tradeAmountUsd: {gt: 100}
+        ) {
           transaction { txFrom }
           baseCurrency { address }
           quoteCurrency { symbol }
@@ -544,26 +552,28 @@ async def bitquery_trending_feed(callback):
     while True:
         if not is_circuit_broken("bitquery"):
             try:
-                async with get_session() as session:
+                async with get_session() as session:  
                     async def _fetch():
                         async with session.post(url, json=payload, headers=headers) as resp:
                             if resp.status != 200:
                                 text = await resp.text()
                                 raise Exception(f"HTTP {resp.status}: {text}")
+                            
                             data = await resp.json()
                             
-                            if (
-                                not data or
-                                "data" not in data or
-                                "Solana" not in data["data"] or
-                                "DEXTrades" not in data["data"]["Solana"]
-                            ):
-                                logger.error(f"Bitquery unexpected data shape: {data}")
+                            # Defensive checks to avoid NoneType errors
+                            trades = (data or {}).get("data", {}).get("Solana", {}).get("DEXTrades")
+                            
+                            if not trades or not isinstance(trades, list):
+                                logger.error(f"Bitquery: Unexpected or missing DEXTrades: {data}")
                                 return
                             
-                            for trade in data["data"]["Solana"]["DEXTrades"]:
-                                addr = trade.get("baseCurrency", {}).get("address", "")
+                            logger.info(f"Bitquery: Found {len(trades)} trending tokens")
+                            
+                            for trade in trades:
+                                addr = (trade.get("baseCurrency") or {}).get("address", "")
                                 if addr:
+                                    logger.info(f"[Bitquery] Trending token: {addr}")
                                     await callback(addr, "bitquery")
                     
                     await retry_with_backoff(_fetch)
@@ -571,7 +581,7 @@ async def bitquery_trending_feed(callback):
                 logger.error(f"Bitquery feed error: {e}")
                 trip_circuit_breaker("bitquery")
         
-        await asyncio.sleep(180)
+        await asyncio.sleep(180)  # Check every 3 minutes
 
 # =====================================
 # Community Vote Aggregator
